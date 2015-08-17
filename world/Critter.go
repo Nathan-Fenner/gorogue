@@ -33,7 +33,7 @@ func (self *Critter) BasicName() string {
 
 func (self *Critter) ReceiveDamage(world *Map, amount int) {
 	self.Health.Value -= amount
-	if self.Health.Value < 0 {
+	if self.Health.Value <= 0 {
 		self.Health.Value = 0
 		AddMessage("%s %s.", self.BasicName(), ConjugatePresent("die", self.Person))
 		self.BecomeCorpse(world)

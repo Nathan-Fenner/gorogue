@@ -1,10 +1,6 @@
 package world
 
-import "github.com/nsf/termbox-go"
-
 type Map struct {
-	Width    int
-	Height   int
 	Tiles    map[P]Tile
 	Entities []Entity
 	Remove   map[Entity]bool
@@ -21,17 +17,6 @@ func (m *Map) EntitiesAt(loc P) []Entity {
 }
 
 func (m *Map) MoveTo(loc P) Bump {
-	if loc.X < 0 || loc.Y < 0 || loc.X >= m.Width || loc.Y >= m.Height {
-		return Bump{
-			Type: BumpSolid,
-			Tile: Tile{
-				Symbol:     '#',
-				Name:       "edge of the world",
-				Foreground: termbox.ColorMagenta,
-				Background: termbox.ColorBlack,
-			},
-		}
-	}
 	tile, ok := m.Tiles[loc]
 	if !ok || tile.Solid {
 		return Bump{

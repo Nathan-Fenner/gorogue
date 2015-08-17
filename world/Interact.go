@@ -3,12 +3,15 @@ package world
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/nsf/termbox-go"
 )
 
-func drawWorld(world *Map) {
+var memory = map[P]bool{}
+
+func drawWorld(world *Map, visibility LightGrid) {
 	player := world.Player()
 	viewSize := 15
 	view := ViewOffset{ViewStandard{}, 2, 2}
@@ -16,15 +19,24 @@ func drawWorld(world *Map) {
 
 	for y := player.Location.Y - viewSize; y <= player.Location.Y+viewSize; y++ {
 		for x := player.Location.X - viewSize; x <= player.Location.X+viewSize; x++ {
-			if tile, ok := world.Tiles[p(x, y)]; ok {
+			if tile, ok := world.Tiles[p(x, y)]; ok && visibility.Visible(p(x, y)) {
+				memory[p(x, y)] = true
 				view.SetCell(x, y, tile.Symbol, tile.Foreground, tile.Background)
 			} else {
-				view.SetCell(x, y, '.', termbox.ColorWhite, termbox.ColorBlack)
+				if memory[p(x, y)] {
+					view.SetCell(x, y, tile.Symbol, termbox.ColorBlue, termbox.ColorBlack)
+				} else {
+					view.SetCell(x, y, ' ', termbox.ColorBlue, termbox.ColorBlack)
+				}
+
 			}
 		}
 	}
 	for _, entity := range world.Entities {
 		if world.Remove[entity] {
+			continue
+		}
+		if !visibility.Visible(entity.At()) {
 			continue
 		}
 		loc := entity.At()
@@ -36,6 +48,9 @@ func drawWorld(world *Map) {
 	}
 	for _, entity := range world.Entities {
 		if world.Remove[entity] {
+			continue
+		}
+		if !visibility.Visible(entity.At()) {
 			continue
 		}
 		loc := entity.At()
@@ -156,7 +171,7 @@ func DrawText(x int, y int, text string) {
 
 func DisplayMessages() {
 	shown := 10
-	position := 31
+	position := 35
 	for x := 0; x < 90; x++ {
 		for y := position; y <= position+shown; y++ {
 			termbox.SetCell(x, y, ' ', termbox.ColorWhite, termbox.ColorBlack)
@@ -207,13 +222,59 @@ func AdvanceWorld(world *Map) {
 	}
 }
 
+type Sidebar struct {
+	Visible Region
+	Status  [][]*Critter
+}
+
+func (sidebar *Sidebar) AddCritter(c *Critter) {
+	if !sidebar.Visible.Inside(c.Location) {
+		return
+	}
+	y := c.Location.Y - sidebar.Visible.Low.Y
+	sidebar.Status[y] = append(sidebar.Status[y], c)
+}
+
+type CritterOrder []*Critter
+
+func (a CritterOrder) Len() int {
+	return len(a)
+}
+func (a CritterOrder) Less(i, j int) bool {
+	return a[i].Location.X < a[j].Location.X
+}
+func (a CritterOrder) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+func (sidebar *Sidebar) Display() {
+	for x := 33; x < 33+200; x++ {
+		for y := 2; y <= 2+31; y++ {
+			termbox.SetCell(x, y, ' ', termbox.ColorWhite, termbox.ColorBlack)
+		}
+	}
+	for y, critters := range sidebar.Status {
+		if len(critters) == 0 {
+			continue
+		}
+		sort.Sort(CritterOrder(critters))
+		for x, critter := range critters {
+			DrawText(33+x*10, 2+y, critter.Health.Render(9))
+		}
+	}
+}
+
 func Play() {
 	rand.Seed(time.Now().Unix())
+
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
 	}
-	world := MakeMap()
+
+	world := CaveMap()
+
+	termbox.Flush()
+
 	defer termbox.Close()
 	for {
 		event := termbox.PollEvent()
@@ -245,10 +306,30 @@ func Play() {
 
 		}
 
-		drawWorld(world)
+		world.CommitRemovals()
+
+		visibility := GetVisibility(world, world.Player().Location)
+
+		drawWorld(world, visibility)
 		DisplayMessages()
 		DrawText(0, 0, "Forest - Depth 0")
 		DrawText(34, 0, fmt.Sprintf("Player: %s", world.Player().Health.Render(40)))
+
+		sidebar := &Sidebar{
+			Visible: Region{
+				Low:  world.Player().Location.Sub(p(15, 15)),
+				High: world.Player().Location.Add(p(15, 15)),
+			},
+			Status: make([][]*Critter, 31),
+		}
+
+		for _, entity := range world.Entities {
+			if critter, ok := entity.(*Critter); ok && visibility.Visible(critter.Location) {
+				sidebar.AddCritter(critter)
+			}
+		}
+
+		sidebar.Display()
 
 		err := termbox.Flush()
 		if err != nil {

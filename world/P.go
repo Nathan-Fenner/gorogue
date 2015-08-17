@@ -56,3 +56,12 @@ func p(x int, y int) P {
 		Y: y,
 	}
 }
+
+type Region struct {
+	Low  P
+	High P
+}
+
+func (r Region) Inside(p P) bool {
+	return p.X >= r.Low.X && p.Y >= r.Low.Y && p.X <= r.High.X && p.Y <= r.High.Y
+}

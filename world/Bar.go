@@ -15,8 +15,8 @@ func (bar Bar) Render(width int) string {
 	if amount < 0 {
 		amount = 1
 	}
-	result := "{f:WHITE|["
-	result += "{b:red|"
+	result := "{f:white|"
+	result += "{b:red|▌"
 	for i := 0; i < total; i++ {
 		if i == amount {
 			result += "}"
@@ -28,8 +28,11 @@ func (bar Bar) Render(width int) string {
 		}
 	}
 	if amount == total {
+		result += "▐}"
 		result += "}"
+	} else {
+		result += "▐}"
 	}
-	result += "]}"
+
 	return result
 }

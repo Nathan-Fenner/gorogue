@@ -11,10 +11,10 @@ func chooseRune(str string) rune {
 const grassSymbols = ",;.'\"  "
 const treeSymbols = "♣♠¶"
 
-func MakeMap() *Map {
+func SurfaceMap() *Map {
+	width := 200
+	height := 200
 	randMap := &Map{
-		Width:  70,
-		Height: 40,
 		Tiles:  make(map[P]Tile),
 		Remove: map[Entity]bool{},
 		Entities: []Entity{
@@ -48,8 +48,8 @@ func MakeMap() *Map {
 			},
 		},
 	}
-	for y := 0; y < randMap.Height; y++ {
-		for x := 0; x < randMap.Width; x++ {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
 			solid := false
 			name := "grass"
 			fore := termbox.ColorGreen
@@ -72,35 +72,35 @@ func MakeMap() *Map {
 		}
 	}
 	for i := 0; i < 30; i++ {
-		bear := &Critter{
+		goblin := &Critter{
 			Health: Bar{
-				Value:   35,
-				Maximum: 35,
+				Value:   15,
+				Maximum: 15,
 			},
 			Tile: Tile{
-				Symbol:     'B',
+				Symbol:     'g',
 				Solid:      true,
 				Foreground: termbox.ColorBlack | termbox.AttrBold,
-				Name:       "bear",
+				Name:       "goblin",
 			},
 			Location: P{
-				X: rand.Intn(randMap.Width),
-				Y: rand.Intn(randMap.Height),
+				X: rand.Intn(width),
+				Y: rand.Intn(height),
 			},
 			Evasion: 3,
 			Attack: Attack{
-				Name: "bear claws",
-				Verb: "claw",
+				Name: "crude spear",
+				Verb: "stab",
 				Damage: Dice{
 					Count: 1,
-					Size:  20,
+					Size:  5,
 					Base:  0,
 				},
 				Accuracy: 5,
 			},
 			Brain: &Hunter{},
 		}
-		randMap.AddEntity(bear)
+		randMap.AddEntity(goblin)
 	}
 	return randMap
 }
