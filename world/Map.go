@@ -1,5 +1,7 @@
 package world
 
+import "math/rand"
+
 type Map struct {
 	Tiles    map[P]Tile
 	Entities []Entity
@@ -67,4 +69,30 @@ func (m *Map) CommitRemovals() {
 	}
 	m.Entities = newEntities
 	m.Remove = map[Entity]bool{}
+}
+
+func (m *Map) ItemAt(loc P) Item {
+	entities := m.EntitiesAt(loc)
+	for _, entity := range entities {
+		if item, ok := entity.(Item); ok {
+			return item
+		}
+	}
+	return nil
+}
+
+func (m *Map) PlaceItem(item Item) {
+	at := item.At()
+	for i := 0; i < 1000; i++ {
+		if m.ItemAt(at) == nil {
+			item.MoveTo(at)
+			m.AddEntity(item)
+			return
+		}
+		dir := []P{p(1, 0), p(0, 1), p(-1, 0), p(0, -1)}[rand.Intn(4)]
+		if !m.MoveTo(at.Add(dir)).Tile.Solid {
+			at = at.Add(dir)
+		}
+	}
+	// sorry, the item was lost!
 }

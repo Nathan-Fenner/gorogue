@@ -12,6 +12,7 @@ type Critter struct {
 	Attack   Attack
 	Evasion  int
 	Brain    Brain
+	Drops    []Item
 }
 
 func (c *Critter) At() P {
@@ -61,6 +62,10 @@ func (self *Critter) BecomeCorpse(world *Map) {
 			Foreground: termbox.ColorRed,
 			Solid:      false,
 		},
+	}
+	for _, item := range self.Drops {
+		item.MoveTo(self.At())
+		world.PlaceItem(item)
 	}
 	world.AddEntity(corpse)
 	world.RemoveEntity(self)

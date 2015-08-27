@@ -4,6 +4,23 @@ import "math/rand"
 
 import "github.com/nsf/termbox-go"
 
+func goblinDrops() []Item {
+	gold := []Item{}
+	amount := rand.Intn(10) + 20
+	for i := 0; i < amount; i++ {
+		gold = append(gold, &Weapon{
+			Tile: Tile{
+				Solid:      false,
+				Symbol:     '*',
+				Name:       "gold pile",
+				Foreground: termbox.ColorYellow | termbox.AttrBold,
+				Background: termbox.ColorBlack,
+			},
+		})
+	}
+	return gold
+}
+
 func CaveMap() *Map {
 	rooms := 15
 	result := &Map{
@@ -74,7 +91,7 @@ func CaveMap() *Map {
 		openTiles[i], openTiles[j] = openTiles[j], openTiles[i]
 	}
 
-	for i := 0; i < 25; i++ {
+	for i := 0; i < 5; i++ {
 		at := openTiles[i]
 		result.AddEntity(&Critter{
 			Health: Bar{
@@ -101,6 +118,7 @@ func CaveMap() *Map {
 				Accuracy: 5,
 			},
 			Brain: &Hunter{},
+			Drops: goblinDrops(),
 		})
 	}
 

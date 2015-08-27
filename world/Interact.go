@@ -32,6 +32,7 @@ func drawWorld(world *Map, visibility LightGrid) {
 			}
 		}
 	}
+	// Draw ground entities:
 	for _, entity := range world.Entities {
 		if world.Remove[entity] {
 			continue
@@ -46,6 +47,22 @@ func drawWorld(world *Map, visibility LightGrid) {
 			view.SetCell(loc.X, loc.Y, appearance.Symbol, appearance.Foreground, tile.Background)
 		}
 	}
+	// Draw items:
+	for _, entity := range world.Entities {
+		if world.Remove[entity] {
+			continue
+		}
+		if !visibility.Visible(entity.At()) {
+			continue
+		}
+		loc := entity.At()
+		tile := world.Tiles[loc]
+		appearance := entity.Appearance()
+		if _, ok := entity.(Item); ok {
+			view.SetCell(loc.X, loc.Y, appearance.Symbol, appearance.Foreground, tile.Background)
+		}
+	}
+	// Draw solid entities:
 	for _, entity := range world.Entities {
 		if world.Remove[entity] {
 			continue
