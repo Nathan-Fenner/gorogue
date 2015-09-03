@@ -5,4 +5,5 @@ type Attack struct {
 	Verb     string
 	Damage   Dice
 	Accuracy int
+	Effects  []PassiveEffect
 }
