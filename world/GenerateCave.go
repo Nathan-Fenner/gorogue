@@ -5,10 +5,8 @@ import "math/rand"
 import "github.com/nsf/termbox-go"
 
 func goblinDrops() []Item {
-	gold := []Item{}
-	amount := rand.Intn(10) + 20
-	for i := 0; i < amount; i++ {
-		gold = append(gold, &Weapon{
+	items := []Item{
+		&Weapon{
 			Tile: Tile{
 				Solid:      false,
 				Symbol:     '*',
@@ -16,9 +14,45 @@ func goblinDrops() []Item {
 				Foreground: termbox.ColorYellow | termbox.AttrBold,
 				Background: termbox.ColorBlack,
 			},
-		})
+		},
+		&Weapon{
+			Tile: Tile{
+				Solid:      false,
+				Symbol:     '↑',
+				Name:       "wooden spear",
+				Foreground: termbox.ColorYellow | termbox.AttrBold,
+				Background: termbox.ColorBlack,
+			},
+		},
+		&Weapon{
+			Tile: Tile{
+				Solid:      false,
+				Symbol:     ']',
+				Name:       "leather armor",
+				Foreground: termbox.ColorYellow | termbox.AttrBold,
+				Background: termbox.ColorBlack,
+			},
+		},
+		&Weapon{
+			Tile: Tile{
+				Solid:      false,
+				Symbol:     '§',
+				Name:       "goblin spellbook",
+				Foreground: termbox.ColorYellow | termbox.AttrBold,
+				Background: termbox.ColorBlack,
+			},
+		},
 	}
-	return gold
+	selected := []Item{}
+	for _, item := range items {
+		if rand.Intn(2) == 1 {
+			selected = append(selected, item)
+		}
+	}
+	if len(selected) == 0 {
+		selected = append(selected, items[rand.Intn(len(items))])
+	}
+	return selected
 }
 
 func CaveMap() *Map {
