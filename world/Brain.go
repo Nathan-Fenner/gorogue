@@ -36,7 +36,7 @@ func (hunter *Hunter) Step(world *Map, self *Critter) {
 		return
 	}
 
-	field := CreateDistanceField(world, player.Location, 40)
+	field := player.Distance(world)
 
 	self.MoveTo(field.Next(self.Location, world))
 }

@@ -5,21 +5,23 @@ import "math/rand"
 import "github.com/nsf/termbox-go"
 
 type Critter struct {
-	Location P
-	Tile     Tile
-	Health   Bar
-	Person   Person
-	Attack   Attack
-	Evasion  int
-	Brain    Brain
-	Drops    []Item
+	Location      P
+	Tile          Tile
+	Health        Bar
+	Person        Person
+	Attack        Attack
+	Evasion       int
+	Brain         Brain
+	Drops         []Item
+	DistanceField DistanceField
 }
 
 func (c *Critter) At() P {
 	return c.Location
 }
-func (c *Critter) MoveTo(loc P) {
-	c.Location = loc
+func (self *Critter) MoveTo(loc P) {
+	self.Location = loc
+	self.DistanceField = DistanceField{} // Clear the distance field
 }
 func (self *Critter) Appearance() Tile {
 	return self.Tile
@@ -30,6 +32,13 @@ func (self *Critter) BasicName() string {
 		return "you"
 	}
 	return fmt.Sprintf("the %s", self.Appearance().Name)
+}
+
+func (self *Critter) Distance(world *Map) DistanceField {
+	if !self.DistanceField.Active {
+		self.DistanceField = CreateDistanceField(world, self.Location, 40)
+	}
+	return self.DistanceField
 }
 
 func (self *Critter) ReceiveDamage(world *Map, amount int) {

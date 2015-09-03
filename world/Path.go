@@ -3,6 +3,7 @@ package world
 import "math/rand"
 
 type DistanceField struct {
+	Active       bool
 	Target       P
 	Maximum      int
 	DistanceFrom map[P]int
@@ -39,6 +40,7 @@ func (f DistanceField) Next(at P, world *Map) P {
 func CreateDistanceField(world *Map, target P, maximum int) DistanceField {
 	stack := []P{target}
 	field := DistanceField{
+		Active:       true,
 		Target:       target,
 		Maximum:      maximum,
 		DistanceFrom: map[P]int{target: 0},
