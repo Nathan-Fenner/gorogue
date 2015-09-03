@@ -6,6 +6,9 @@ import (
 	"sort"
 	"time"
 
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/nsf/termbox-go"
 )
 
@@ -101,17 +104,30 @@ type Announcement struct {
 	Message string
 }
 
+func uppercaseFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[n:]
+}
+
 func AddMessage(message string, options ...interface{}) {
+	message = uppercaseFirst(fmt.Sprintf(message, options...))
+	if len(message) == 0 {
+		panic("AddMessage() given empty message")
+	}
 	Messages = append(Messages, Announcement{
 		Turn:    TurnCount,
-		Message: fmt.Sprintf(message, options...),
+		Message: message,
 	})
 }
 
 func DrawText(x int, y int, text string) {
 	chars := []rune(text)
-	forestack := []termbox.Attribute{termbox.ColorWhite}
-	backstack := []termbox.Attribute{termbox.ColorBlack}
+	forestack := []string{"grey"}
+	backstack := []string{"black"}
+	modestack := []string{"normal"}
 	peak := 0
 	mode := "print"
 	key := []rune{}
@@ -125,14 +141,7 @@ func DrawText(x int, y int, text string) {
 		"cyan":    termbox.ColorCyan,
 		"blue":    termbox.ColorBlue,
 		"magenta": termbox.ColorMagenta,
-		"WHITE":   termbox.ColorWhite | termbox.AttrBold,
-		"BLACK":   termbox.ColorBlack | termbox.AttrBold,
-		"RED":     termbox.ColorRed | termbox.AttrBold,
-		"YELLOW":  termbox.ColorYellow | termbox.AttrBold,
-		"GREEN":   termbox.ColorGreen | termbox.AttrBold,
-		"CYAN":    termbox.ColorCyan | termbox.AttrBold,
-		"BLUE":    termbox.ColorBlue | termbox.AttrBold,
-		"MAGENTA": termbox.ColorMagenta | termbox.AttrBold,
+		"grey":    termbox.ColorWhite,
 	}
 	dx := 0
 	for _, char := range chars {
@@ -148,9 +157,11 @@ func DrawText(x int, y int, text string) {
 				keyString := string(key)
 				switch keyString {
 				case "f":
-					forestack[peak] = colorMap[string(value)]
+					forestack[peak] = string(value)
 				case "b":
-					backstack[peak] = colorMap[string(value)]
+					backstack[peak] = string(value)
+				case "m":
+					modestack[peak] = string(value)
 				default:
 					panic(fmt.Sprintf("unknown format key `%s`", key))
 				}
@@ -170,6 +181,7 @@ func DrawText(x int, y int, text string) {
 			case '{':
 				forestack = append(forestack, forestack[peak])
 				backstack = append(backstack, backstack[peak])
+				modestack = append(modestack, modestack[peak])
 				peak++
 				mode = "format-key"
 				key = nil
@@ -177,9 +189,18 @@ func DrawText(x int, y int, text string) {
 			case '}':
 				forestack = forestack[:peak]
 				backstack = backstack[:peak]
+				modestack = modestack[:peak]
 				peak--
 			default:
-				termbox.SetCell(x+dx, y, char, forestack[peak], backstack[peak])
+				foreColor := colorMap[forestack[peak]]
+				backColor := colorMap[backstack[peak]]
+				if modestack[peak] == "bold" {
+					foreColor = foreColor | termbox.AttrBold
+				}
+				if forestack[peak] == "grey" && modestack[peak] == "normal" {
+					foreColor = termbox.ColorBlack | termbox.AttrBold
+				}
+				termbox.SetCell(x+dx, y, char, foreColor, backColor)
 				dx++
 			}
 		}
@@ -200,9 +221,9 @@ func DisplayMessages() {
 	}
 	for i := lastFew; i < len(Messages); i++ {
 		if Messages[i].Turn == TurnCount {
-			DrawText(1, position+i-lastFew, fmt.Sprintf("{f:YELLOW|%s}", Messages[i].Message))
+			DrawText(1, position+i-lastFew, fmt.Sprintf("{m:bold|%s}", Messages[i].Message))
 		} else {
-			DrawText(1, position+i-lastFew, Messages[i].Message)
+			DrawText(1, position+i-lastFew, fmt.Sprintf("%s", Messages[i].Message))
 		}
 	}
 }
@@ -214,6 +235,12 @@ func MovePlayer(world *Map, dx int, dy int) {
 	switch bump.Type {
 	case BumpEmpty:
 		player.MoveTo(np)
+		entities := world.EntitiesAt(player.Location)
+		for _, entity := range entities {
+			if item, ok := entity.(Item); ok {
+				AddMessage("You're standing on a {f:yellow|%s}.", item.BasicName())
+			}
+		}
 		AdvanceWorld(world)
 	case BumpSolid:
 		AddMessage("You're blocked by the %s.", bump.Tile.Name)
@@ -223,7 +250,7 @@ func MovePlayer(world *Map, dx int, dy int) {
 			player.AttackTarget(world, target)
 			AdvanceWorld(world)
 		default:
-			AddMessage("You bump into {f:WHITE|%s}.", target.BasicName())
+			AddMessage("You bump into {f:blue|%s}.", target.BasicName())
 		}
 	}
 }
@@ -322,7 +349,7 @@ func Play() {
 					if foundItem == nil {
 						AddMessage("There's nothing to pick up where you're standing.")
 					} else {
-						AddMessage("You pick up a %s", foundItem.BasicName())
+						AddMessage("You pick up a {f:yellow|%s}.", foundItem.BasicName())
 						world.RemoveEntity(foundItem)
 						// TODO: add to player inventory
 						AdvanceWorld(world)
