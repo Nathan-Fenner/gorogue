@@ -35,36 +35,8 @@ func (hunter *Hunter) Step(world *Map, self *Critter) {
 		self.AttackTarget(world, player)
 		return
 	}
-	if self.Location.Distance(player.Location) > 10 {
-		(&Wander{}).Step(world, self)
-		return
-	}
-	// Move towards the target, if possible
-	directions := Cardinals()
-	current := self.Location.Distance(player.Location)
-	choices := []P{}
-	alternates := []P{}
-	for _, direction := range directions {
-		adjacent := self.Location.Add(direction)
-		if world.MoveTo(adjacent).Type != BumpEmpty {
-			continue
-		}
-		if adjacent.Distance(player.Location) == current {
-			alternates = append(alternates, direction)
-			continue
-		}
-		if adjacent.Distance(player.Location) > current {
-			continue
-		}
-		choices = append(choices, direction)
-	}
-	if len(choices) == 0 {
-		if len(alternates) == 0 {
-			(&Wander{}).Step(world, self)
-			return
-		}
-		choices = alternates
-	}
-	choice := choices[rand.Intn(len(choices))]
-	self.MoveTo(self.Location.Add(choice))
+
+	field := CreateDistanceField(world, player.Location, 40)
+
+	self.MoveTo(field.Next(self.Location, world))
 }
