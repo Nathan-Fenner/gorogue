@@ -1,35 +1,14 @@
 package world
 
+import "math"
+
 type LightGrid struct {
 	from    P
 	visible map[P]bool
-	active  map[P]bool
-	lower   map[P]P
-	upper   map[P]P
 }
 
 func (g LightGrid) Visible(at P) bool {
 	return g.visible[at.Sub(g.from)]
-}
-
-func naturalTarget(from int, to int) float64 {
-	if from == to {
-		return 0.5
-	}
-	if from < to {
-		return 1
-	}
-	return 0
-}
-
-func sign(i int) int {
-	if i < 0 {
-		return -1
-	}
-	if i > 0 {
-		return 1
-	}
-	return 0
 }
 
 func spiral(n int) []P {
@@ -48,160 +27,83 @@ func spiral(n int) []P {
 	}
 	return r
 }
-func primary(at P) P {
-	x, sx := at.X, 1
-	y, sy := at.Y, 1
-	if x < 0 {
-		sx = -1
-	}
-	if y < 0 {
-		sy = -1
-	}
-	if x == 0 {
-		return p(0, sy)
-	}
-	if y == 0 {
-		return p(sx, 0)
-	}
-	if x*sx == y*sy {
-		return p(0, 0) // it's a pure angle
-	}
-	if x*sx > y*sy {
-		return p(sx, 0)
-	}
-	return p(0, sy)
-}
-func secondary(at P) P {
-	if at.X == 0 || at.Y == 0 {
-		return p(0, 0) // it's a pure cardinal
-	}
-	sx := 1
-	if at.X == 0 {
-		sx = 0
-	}
-	if at.X < 0 {
-		sx = -1
-	}
-	sy := 1
-	if at.Y == 0 {
-		sy = 0
-	}
-	if at.Y < 0 {
-		sy = -1
-	}
-	return p(sx, sy)
+
+func intFloor(x float64) int {
+	return int(math.Floor(x))
 }
 
-func inOrder(low P, high P) bool {
-	// low.Y / low.X <= high.Y / high.X
-	// or equivalently,
-	// low.Y * high.X <= high.Y * low.X
-	// (provided all quantities are positive)
-	return low.Y*high.X <= high.Y*low.X
+func round(x float64) int {
+	return intFloor(x + 0.5)
 }
 
-func lower(a P, b P) P {
-	if inOrder(a, b) {
-		return a
+func castRayOffsets(m *Map, from P, offset P, fx float64, fy float64, ox float64, oy float64) bool {
+	dx := ox + float64(offset.X) - fx
+	dy := oy + float64(offset.Y) - fy
+	steps := 100 // for now, a really high-precision number
+	px, py := float64(from.X)+fx, float64(from.Y)+fy
+	l := from
+	for i := 1; i <= steps; i++ {
+		ax := float64(from.X) + fx + float64(i)/float64(steps)*dx
+		ay := float64(from.Y) + fy + float64(i)/float64(steps)*dy
+		c := p(intFloor(ax), intFloor(ay))
+		if c == from.Add(offset) {
+			return true
+		}
+		if tile, ok := m.Tiles[c]; !ok || tile.Solid {
+			if tile, ok := m.Tiles[l]; !ok || tile.Solid {
+				if round(ax) != round(px) || round(ay) != round(py) {
+					return false
+				}
+			}
+		}
+		// This is where I'm at.
+		px, py = ax, ay
+		l = c
 	}
-	return b
+	return true
 }
-func higher(a P, b P) P {
-	if inOrder(a, b) {
-		return b
+func castRay(m *Map, from P, offset P) bool {
+	os := []float64{0.05, 0.95}
+	for _, fx := range os {
+		for _, fy := range os {
+			for _, ox := range os {
+				for _, oy := range os {
+					if castRayOffsets(m, from, offset, fx, fy, ox, oy) {
+						return true
+					}
+				}
+			}
+		}
 	}
-	return a
-}
-
-func inBounds(low P, value P, high P) bool {
-	return inOrder(low, value) && inOrder(value, high)
-}
-
-func angleCoord(at P) P {
-	if at.X < 0 {
-		at.X *= -1
-	}
-	if at.Y < 0 {
-		at.Y *= -1
-	}
-	if at.X == at.Y {
-		return p(0, at.X)
-	}
-	if at.X < at.Y {
-		return p(at.Y-at.X, at.X)
-	} else {
-		return p(at.X-at.Y, at.Y)
-	}
-}
-
-func reorientPrinciple(point P) P {
-	if point.X < 0 {
-		point.X *= -1
-	}
-	if point.Y < 0 {
-		point.Y *= -1
-	}
-	if point.X < point.Y {
-		point.X, point.Y = point.Y, point.X
-	}
-	return point
+	return false
 }
 
 func GetVisibility(m *Map, from P) LightGrid {
 	g := LightGrid{
 		from:    from,
 		visible: map[P]bool{},
-		active:  map[P]bool{},
-		lower:   map[P]P{},
-		upper:   map[P]P{},
 	}
-	points := spiral(30)
-	zero := p(0, 0)
-	for i, point := range points {
-		if i == 0 {
-			// The central point is always active and visible
-			g.visible[zero] = true
-			g.active[zero] = true
-			g.lower[zero] = p(2, 0)
-			g.upper[zero] = p(2, 2)
+	stack := []P{p(0, 0)}
+	visited := map[P]bool{p(0, 0): true}
+	size := 30
+	for len(stack) > 0 {
+		offset := stack[0]
+		stack = stack[1:]
+		if offset.X > size || offset.X < -size || offset.Y > size || offset.Y < -size {
 			continue
 		}
-		// Step backwards in the primary direction:
-
-		forgiveness := 3
-
-		if parent := point.Sub(primary(point)); g.active[parent] {
-			oriented := reorientPrinciple(point)
-			// The point is active: check whether I lie in its ratios
-			if inBounds(g.lower[parent], oriented, g.upper[parent]) {
-				// Update visible region
-				g.lower[point] = higher(g.lower[parent], oriented.Add(p(forgiveness, 0)))
-				g.upper[point] = lower(g.upper[parent], oriented.Add(p(forgiveness, forgiveness)))
-				g.visible[point] = true
-			}
+		if offset != p(0, 0) && !castRay(m, from, offset) {
+			continue
 		}
-
-		if parent := point.Sub(secondary(point)); g.active[parent] {
-			oriented := reorientPrinciple(point)
-			// The point is active: check whether I lie in its ratios
-			if inBounds(g.lower[parent], oriented, g.upper[parent]) {
-				// Update visible region, with caveat if already visible from primary:
-				// We expand the sight instead of restricting.
-				lowerBound := higher(g.lower[parent], oriented.Add(p(forgiveness, 0)))
-				upperBound := lower(g.upper[parent], oriented.Add(p(forgiveness, forgiveness)))
-				if g.visible[point] {
-					g.lower[point] = lower(g.lower[point], lowerBound)
-					g.upper[point] = lower(g.upper[point], upperBound)
-				} else {
-					g.lower[point] = lowerBound
-					g.upper[point] = upperBound
+		g.visible[offset] = true
+		for dx := -1; dx <= 1; dx++ {
+			for dy := -1; dy <= 1; dy++ {
+				n := offset.Add(p(dx, dy))
+				if !visited[n] {
+					visited[n] = true
+					stack = append(stack, n)
 				}
-				g.visible[point] = true
 			}
-		}
-
-		if g.visible[point] && !m.Tiles[point.Add(from)].Solid {
-			g.active[point] = true
 		}
 	}
 	return g

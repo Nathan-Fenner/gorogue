@@ -200,7 +200,7 @@ func DisplayMessages() {
 	}
 	for i := lastFew; i < len(Messages); i++ {
 		if Messages[i].Turn == TurnCount {
-			DrawText(1, position+i-lastFew, Messages[i].Message)
+			DrawText(1, position+i-lastFew, fmt.Sprintf("{f:YELLOW|%s}", Messages[i].Message))
 		} else {
 			DrawText(1, position+i-lastFew, Messages[i].Message)
 		}
@@ -310,6 +310,23 @@ func Play() {
 				return
 			default:
 				switch event.Ch {
+				case 'g':
+					entities := world.EntitiesAt(world.Player().Location)
+					foundItem := Item(nil)
+					for _, entity := range entities {
+						if item, ok := entity.(Item); ok {
+							foundItem = item
+							break
+						}
+					}
+					if foundItem == nil {
+						AddMessage("There's nothing to pick up where you're standing.")
+					} else {
+						AddMessage("You pick up a %s", foundItem.BasicName())
+						world.RemoveEntity(foundItem)
+						// TODO: add to player inventory
+						AdvanceWorld(world)
+					}
 				case '5':
 					// Wait
 					AdvanceWorld(world)
@@ -329,6 +346,7 @@ func Play() {
 
 		drawWorld(world, visibility)
 		DisplayMessages()
+		TurnCount++
 		DrawText(0, 0, "Forest - Depth 0")
 		DrawText(34, 0, fmt.Sprintf("Player: %s", world.Player().Health.Render(40)))
 
