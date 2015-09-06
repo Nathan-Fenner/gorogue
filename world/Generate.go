@@ -11,10 +11,10 @@ func chooseRune(str string) rune {
 const grassSymbols = ",;.'\"  "
 const treeSymbols = "♣♠¶"
 
-func SurfaceMap() *Map {
+func SurfaceLevel() *Level {
 	width := 200
 	height := 200
-	randMap := &Map{
+	randLevel := &Level{
 		Tiles:  make(map[P]Tile),
 		Remove: map[Entity]bool{},
 		Entities: []Entity{
@@ -25,7 +25,8 @@ func SurfaceMap() *Map {
 				},
 				Tile: Tile{
 					Symbol:     '@',
-					Solid:      true,
+					Passable:   false,
+					Solid:      false,
 					Foreground: termbox.ColorBlue | termbox.AttrBold,
 					Name:       "$player",
 				},
@@ -62,8 +63,9 @@ func SurfaceMap() *Map {
 				name = "tree"
 				symbol = chooseRune(treeSymbols)
 			}
-			randMap.Tiles[p(x, y)] = Tile{
+			randLevel.Tiles[p(x, y)] = Tile{
 				Solid:      solid,
+				Passable:   !solid,
 				Symbol:     symbol,
 				Name:       name,
 				Foreground: fore,
@@ -79,7 +81,8 @@ func SurfaceMap() *Map {
 			},
 			Tile: Tile{
 				Symbol:     'g',
-				Solid:      true,
+				Passable:   false,
+				Solid:      false,
 				Foreground: termbox.ColorBlack | termbox.AttrBold,
 				Name:       "goblin",
 			},
@@ -100,7 +103,7 @@ func SurfaceMap() *Map {
 			},
 			Brain: &Hunter{},
 		}
-		randMap.AddEntity(goblin)
+		randLevel.AddEntity(goblin)
 	}
-	return randMap
+	return randLevel
 }

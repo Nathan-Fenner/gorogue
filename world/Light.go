@@ -36,7 +36,7 @@ func round(x float64) int {
 	return intFloor(x + 0.5)
 }
 
-func castRayOffsets(m *Map, from P, offset P, fx float64, fy float64, ox float64, oy float64) bool {
+func castRayOffsets(m *Level, from P, offset P, fx float64, fy float64, ox float64, oy float64) bool {
 	dx := ox + float64(offset.X) - fx
 	dy := oy + float64(offset.Y) - fy
 	steps := 100 // for now, a really high-precision number
@@ -62,7 +62,7 @@ func castRayOffsets(m *Map, from P, offset P, fx float64, fy float64, ox float64
 	}
 	return true
 }
-func castRay(m *Map, from P, offset P) bool {
+func castRay(m *Level, from P, offset P) bool {
 	os := []float64{0.05, 0.95}
 	for _, fx := range os {
 		for _, fy := range os {
@@ -78,7 +78,7 @@ func castRay(m *Map, from P, offset P) bool {
 	return false
 }
 
-func GetVisibility(m *Map, from P) LightGrid {
+func GetVisibility(m *Level, from P) LightGrid {
 	g := LightGrid{
 		from:    from,
 		visible: map[P]bool{},

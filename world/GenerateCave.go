@@ -9,6 +9,7 @@ func goblinDrops() []Item {
 		&Weapon{
 			Tile: Tile{
 				Solid:      false,
+				Passable:   true,
 				Symbol:     '*',
 				Name:       "gold pile",
 				Foreground: termbox.ColorYellow | termbox.AttrBold,
@@ -18,6 +19,7 @@ func goblinDrops() []Item {
 		&Weapon{
 			Tile: Tile{
 				Solid:      false,
+				Passable:   true,
 				Symbol:     '↑',
 				Name:       "wooden spear",
 				Foreground: termbox.ColorYellow | termbox.AttrBold,
@@ -27,6 +29,7 @@ func goblinDrops() []Item {
 		&Weapon{
 			Tile: Tile{
 				Solid:      false,
+				Passable:   true,
 				Symbol:     ']',
 				Name:       "leather armor",
 				Foreground: termbox.ColorYellow | termbox.AttrBold,
@@ -36,6 +39,7 @@ func goblinDrops() []Item {
 		&Weapon{
 			Tile: Tile{
 				Solid:      false,
+				Passable:   true,
 				Symbol:     '§',
 				Name:       "goblin spellbook",
 				Foreground: termbox.ColorYellow | termbox.AttrBold,
@@ -45,7 +49,7 @@ func goblinDrops() []Item {
 	}
 	selected := []Item{}
 	for _, item := range items {
-		if rand.Intn(2) == 1 {
+		if rand.Intn(3) == 1 {
 			selected = append(selected, item)
 		}
 	}
@@ -55,9 +59,9 @@ func goblinDrops() []Item {
 	return selected
 }
 
-func CaveMap() *Map {
+func CaveLevel() *Level {
 	rooms := 15
-	result := &Map{
+	result := &Level{
 		Tiles:    make(map[P]Tile),
 		Remove:   map[Entity]bool{},
 		Entities: []Entity{},
@@ -76,6 +80,7 @@ func CaveMap() *Map {
 			locations = append(locations, base.Add(offset))
 		}
 	}
+
 	result.AddEntity(&Critter{
 		Health: Bar{
 			Value:   200,
@@ -83,7 +88,8 @@ func CaveMap() *Map {
 		},
 		Tile: Tile{
 			Symbol:     '@',
-			Solid:      true,
+			Solid:      false,
+			Passable:   false,
 			Foreground: termbox.ColorBlue | termbox.AttrBold,
 			Name:       "$player",
 		},
@@ -115,7 +121,7 @@ func CaveMap() *Map {
 
 	openTiles := []P{}
 	for at, tile := range result.Tiles {
-		if !tile.Solid {
+		if tile.Passable {
 			openTiles = append(openTiles, at)
 		}
 	}
@@ -125,7 +131,7 @@ func CaveMap() *Map {
 		openTiles[i], openTiles[j] = openTiles[j], openTiles[i]
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10+rand.Intn(10); i++ {
 		at := openTiles[i]
 		result.AddEntity(&Critter{
 			Health: Bar{
@@ -134,7 +140,8 @@ func CaveMap() *Map {
 			},
 			Tile: Tile{
 				Symbol:     'g',
-				Solid:      true,
+				Solid:      false,
+				Passable:   false,
 				Foreground: termbox.ColorGreen,
 				Name:       "goblin",
 			},
@@ -151,18 +158,19 @@ func CaveMap() *Map {
 				},
 				Accuracy: 5,
 			},
-			Brain: &Hunter{},
-			Drops: goblinDrops(),
+			Brain:             &Hunter{},
+			Inventory:         goblinDrops(),
+			InventoryCapacity: 3,
 		})
 	}
 
 	return result
 }
 
-func StampHallHorizontal(m *Map, from P, to P) P {
+func StampHallHorizontal(m *Level, from P, to P) P {
 	at := from
 	for at.X != to.X {
-		StampFloorWall(m, at)
+		StampWalledHall(m, at)
 		if at.X < to.X {
 			at.X++
 		} else {
@@ -171,10 +179,10 @@ func StampHallHorizontal(m *Map, from P, to P) P {
 	}
 	return at
 }
-func StampHallVertical(m *Map, from P, to P) P {
+func StampHallVertical(m *Level, from P, to P) P {
 	at := from
 	for at.Y != to.Y {
-		StampFloorWall(m, at)
+		StampWalledHall(m, at)
 		if at.Y < to.Y {
 			at.Y++
 		} else {
@@ -184,7 +192,7 @@ func StampHallVertical(m *Map, from P, to P) P {
 	return at
 }
 
-func StampHall(m *Map, from P, to P) {
+func StampHall(m *Level, from P, to P) {
 	if rand.Intn(2) == 0 {
 		corner := StampHallHorizontal(m, from, to)
 		StampHallVertical(m, corner, to)
@@ -194,7 +202,7 @@ func StampHall(m *Map, from P, to P) {
 	}
 }
 
-func StampRoom(m *Map, x int, y int, w int, h int) bool {
+func StampRoom(m *Level, x int, y int, w int, h int) bool {
 	for nx := x - 1; nx <= x+w; nx++ {
 		for ny := y - 1; ny <= y+h; ny++ {
 			if _, ok := m.Tiles[p(nx, ny)]; !ok {
@@ -223,37 +231,37 @@ func StampRoom(m *Map, x int, y int, w int, h int) bool {
 	return true
 }
 
-func StampFloor(m *Map, at P) {
+func StampFloor(m *Level, at P) {
 	m.Tiles[at] = Tile{
 		Solid:      false,
+		Passable:   true,
 		Symbol:     chooseRune(",.'`"),
 		Name:       "stone tile",
 		Foreground: termbox.ColorWhite,
 		Background: termbox.ColorBlack,
 	}
 }
-func StampWall(m *Map, at P) {
+func StampWall(m *Level, at P) {
 	if m.Tiles[at].Name == "stone tile" {
 		return
 	}
 	m.Tiles[at] = Tile{
 		Solid:      true,
-		Symbol:     chooseRune("▒"),
+		Passable:   false,
+		Symbol:     '▒',
 		Name:       "stone wall",
 		Foreground: termbox.ColorWhite,
 		Background: termbox.ColorBlack,
 	}
 }
 
-func StampFloorWall(m *Map, at P) {
+func StampWalledHall(m *Level, at P) {
 	StampFloor(m, at)
-	StampWall(m, at.Add(p(1, 0)))
-	StampWall(m, at.Add(p(-1, 0)))
-	StampWall(m, at.Add(p(0, 1)))
-	StampWall(m, at.Add(p(0, -1)))
-
-	StampWall(m, at.Add(p(1, 1)))
-	StampWall(m, at.Add(p(-1, 1)))
-	StampWall(m, at.Add(p(1, -1)))
-	StampWall(m, at.Add(p(-1, -1)))
+	for dx := -1; dx <= 1; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			if dx != 0 || dy != 0 {
+				StampWall(m, at.Add(p(dx, dy)))
+			}
+		}
+	}
 }

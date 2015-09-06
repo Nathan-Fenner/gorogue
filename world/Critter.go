@@ -5,15 +5,16 @@ import "math/rand"
 import "github.com/nsf/termbox-go"
 
 type Critter struct {
-	Location      P
-	Tile          Tile
-	Health        Bar
-	Person        Person
-	Attack        Attack
-	Evasion       int
-	Brain         Brain
-	Drops         []Item
-	DistanceField DistanceField
+	Location          P
+	Tile              Tile
+	Health            Bar
+	Person            Person
+	Attack            Attack
+	Evasion           int
+	Brain             Brain
+	Inventory         []Item
+	InventoryCapacity int
+	DistanceField     DistanceField
 }
 
 func (c *Critter) At() P {
@@ -34,14 +35,14 @@ func (self *Critter) BasicName() string {
 	return fmt.Sprintf("the %s", self.Appearance().Name)
 }
 
-func (self *Critter) Distance(world *Map) DistanceField {
+func (self *Critter) Distance(world *Level) DistanceField {
 	if !self.DistanceField.Active {
 		self.DistanceField = CreateDistanceField(world, self.Location, 40)
 	}
 	return self.DistanceField
 }
 
-func (self *Critter) ReceiveDamage(world *Map, amount int) {
+func (self *Critter) ReceiveDamage(world *Level, amount int) {
 	self.Health.Value -= amount
 	if self.Health.Value <= 0 {
 		self.Health.Value = 0
@@ -50,7 +51,7 @@ func (self *Critter) ReceiveDamage(world *Map, amount int) {
 	}
 }
 
-func (self *Critter) AttackTarget(world *Map, target *Critter) {
+func (self *Critter) AttackTarget(world *Level, target *Critter) {
 	miss := rand.Intn(target.Evasion) >= rand.Intn(self.Attack.Accuracy)
 	if miss {
 		// you miss the bear
@@ -63,16 +64,17 @@ func (self *Critter) AttackTarget(world *Map, target *Critter) {
 	target.ReceiveDamage(world, damage)
 }
 
-func (self *Critter) BecomeCorpse(world *Map) {
+func (self *Critter) BecomeCorpse(world *Level) {
 	corpse := &Corpse{
 		Location: self.Location,
 		Tile: Tile{
 			Symbol:     '&',
 			Foreground: termbox.ColorRed,
+			Passable:   true,
 			Solid:      false,
 		},
 	}
-	for _, item := range self.Drops {
+	for _, item := range self.Inventory {
 		item.MoveTo(self.At())
 		world.PlaceItem(item)
 	}

@@ -15,7 +15,7 @@ func (f DistanceField) Distance(at P) int {
 	}
 	return f.Maximum + 1
 }
-func (f DistanceField) Next(at P, world *Map) P {
+func (f DistanceField) Next(at P, world *Level) P {
 	bestNeighbors := []P{at}
 	bestValue := f.Distance(at)
 	for dx := -1; dx <= 1; dx++ {
@@ -37,7 +37,7 @@ func (f DistanceField) Next(at P, world *Map) P {
 	return bestNeighbors[index]
 }
 
-func CreateDistanceField(world *Map, target P, maximum int) DistanceField {
+func CreateDistanceField(world *Level, target P, maximum int) DistanceField {
 	stack := []P{target}
 	field := DistanceField{
 		Active:       true,
@@ -51,7 +51,7 @@ func CreateDistanceField(world *Map, target P, maximum int) DistanceField {
 		for dx := -1; dx <= 1; dx++ {
 			for dy := -1; dy <= 1; dy++ {
 				neighbor := at.Add(p(dx, dy))
-				if tile, ok := world.Tiles[neighbor]; !ok || tile.Solid {
+				if tile, ok := world.Tiles[neighbor]; !ok || !tile.Passable {
 					continue
 				}
 				if _, ok := field.DistanceFrom[neighbor]; ok {

@@ -14,7 +14,10 @@ import (
 
 var memory = map[P]bool{}
 
-func drawWorld(world *Map, visibility LightGrid) {
+var inventory = []Item{}
+var inventoryCapacity = 20
+
+func drawWorld(world *Level, visibility LightGrid) {
 	player := world.Player()
 	viewSize := 15
 	view := ViewOffset{ViewStandard{}, 2, 2}
@@ -46,7 +49,7 @@ func drawWorld(world *Map, visibility LightGrid) {
 		loc := entity.At()
 		tile := world.Tiles[loc]
 		appearance := entity.Appearance()
-		if !appearance.Solid {
+		if appearance.Passable {
 			view.SetCell(loc.X, loc.Y, appearance.Symbol, appearance.Foreground, tile.Background)
 		}
 	}
@@ -76,7 +79,7 @@ func drawWorld(world *Map, visibility LightGrid) {
 		loc := entity.At()
 		tile := world.Tiles[loc]
 		appearance := entity.Appearance()
-		if appearance.Solid {
+		if !appearance.Passable {
 			view.SetCell(loc.X, loc.Y, appearance.Symbol, appearance.Foreground, tile.Background)
 		}
 	}
@@ -132,7 +135,7 @@ func DrawText(x int, y int, text string) {
 	mode := "print"
 	key := []rune{}
 	value := []rune{}
-	colorMap := map[string]termbox.Attribute{
+	colorLevel := map[string]termbox.Attribute{
 		"white":   termbox.ColorWhite,
 		"black":   termbox.ColorBlack,
 		"red":     termbox.ColorRed,
@@ -192,8 +195,8 @@ func DrawText(x int, y int, text string) {
 				modestack = modestack[:peak]
 				peak--
 			default:
-				foreColor := colorMap[forestack[peak]]
-				backColor := colorMap[backstack[peak]]
+				foreColor := colorLevel[forestack[peak]]
+				backColor := colorLevel[backstack[peak]]
 				if modestack[peak] == "bold" {
 					foreColor = foreColor | termbox.AttrBold
 				}
@@ -224,44 +227,6 @@ func DisplayMessages() {
 			DrawText(1, position+i-lastFew, fmt.Sprintf("{m:bold|%s}", Messages[i].Message))
 		} else {
 			DrawText(1, position+i-lastFew, fmt.Sprintf("%s", Messages[i].Message))
-		}
-	}
-}
-
-func MovePlayer(world *Map, dx int, dy int) {
-	player := world.Player()
-	np := player.At().Add(p(dx, dy))
-	bump := world.MoveTo(np)
-	switch bump.Type {
-	case BumpEmpty:
-		player.MoveTo(np)
-		entities := world.EntitiesAt(player.Location)
-		for _, entity := range entities {
-			if item, ok := entity.(Item); ok {
-				AddMessage("You're standing on a {f:yellow|%s}.", item.BasicName())
-			}
-		}
-		AdvanceWorld(world)
-	case BumpSolid:
-		AddMessage("You're blocked by the %s.", bump.Tile.Name)
-	case BumpAction:
-		switch target := bump.Target.(type) {
-		case *Critter:
-			player.AttackTarget(world, target)
-			AdvanceWorld(world)
-		default:
-			AddMessage("You bump into {f:blue|%s}.", target.BasicName())
-		}
-	}
-}
-
-func AdvanceWorld(world *Map) {
-	for _, entity := range world.Entities {
-		if world.Remove[entity] {
-			continue
-		}
-		if critter, ok := entity.(*Critter); ok && critter.Brain != nil && critter.Health.Value > 0 {
-			critter.Brain.Step(world, critter)
 		}
 	}
 }
@@ -315,7 +280,7 @@ func Play() {
 		panic(err)
 	}
 
-	world := CaveMap()
+	world := CaveLevel()
 
 	termbox.Flush()
 
@@ -326,42 +291,27 @@ func Play() {
 		case termbox.EventKey:
 			switch event.Key {
 			case termbox.KeyArrowLeft:
-				MovePlayer(world, -1, 0)
+				world.MovePlayer(-1, 0)
 			case termbox.KeyArrowRight:
-				MovePlayer(world, 1, 0)
+				world.MovePlayer(1, 0)
 			case termbox.KeyArrowUp:
-				MovePlayer(world, 0, -1)
+				world.MovePlayer(0, -1)
 			case termbox.KeyArrowDown:
-				MovePlayer(world, 0, 1)
+				world.MovePlayer(0, 1)
 			case termbox.KeyEsc:
 				return
 			default:
 				switch event.Ch {
 				case 'g':
-					entities := world.EntitiesAt(world.Player().Location)
-					foundItem := Item(nil)
-					for _, entity := range entities {
-						if item, ok := entity.(Item); ok {
-							foundItem = item
-							break
-						}
-					}
-					if foundItem == nil {
-						AddMessage("There's nothing to pick up where you're standing.")
-					} else {
-						AddMessage("You pick up a {f:yellow|%s}.", foundItem.BasicName())
-						world.RemoveEntity(foundItem)
-						// TODO: add to player inventory
-						AdvanceWorld(world)
-					}
+					world.TryPickup()
 				case '5':
 					// Wait
-					AdvanceWorld(world)
+					world.Advance()
 				case '0', '1', '2', '3', '4', '6', '7', '8', '9':
 					num := int(event.Ch - 48)
 					dx := ((num - 1) % 3) - 1
 					dy := 1 - ((num - 1) / 3)
-					MovePlayer(world, dx, dy)
+					world.MovePlayer(dx, dy)
 				}
 			}
 

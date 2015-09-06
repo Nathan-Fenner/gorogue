@@ -3,13 +3,13 @@ package world
 import "math/rand"
 
 type Brain interface {
-	Step(*Map, *Critter)
+	Step(*Level, *Critter)
 }
 
 type Wander struct {
 }
 
-func (wander *Wander) Step(world *Map, self *Critter) {
+func (wander *Wander) Step(world *Level, self *Critter) {
 	directions := Cardinals()
 	choices := []P{}
 	for _, direction := range directions {
@@ -29,7 +29,7 @@ func (wander *Wander) Step(world *Map, self *Critter) {
 type Hunter struct {
 }
 
-func (hunter *Hunter) Step(world *Map, self *Critter) {
+func (hunter *Hunter) Step(world *Level, self *Critter) {
 	player := world.Player()
 	if self.Location.Distance(player.Location) == 1 {
 		self.AttackTarget(world, player)
