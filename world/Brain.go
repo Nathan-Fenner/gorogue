@@ -27,6 +27,7 @@ func (wander *Wander) Step(world *Level, self *Critter) {
 }
 
 type Hunter struct {
+	TargetPosition P
 }
 
 func (hunter *Hunter) Step(world *Level, self *Critter) {
@@ -35,8 +36,18 @@ func (hunter *Hunter) Step(world *Level, self *Critter) {
 		self.AttackTarget(world, player)
 		return
 	}
+	playerSighted := VisibleBetween(world, self.Location, player.Location)
+	playerField := player.Distance(world)
+	if playerSighted && playerField.Distance(self.Location) <= 15 {
+		hunter.TargetPosition = player.Location
+	}
 
-	field := player.Distance(world)
+	if self.Location == hunter.TargetPosition {
+		(&Wander{}).Step(world, self)
+		hunter.TargetPosition = self.Location // To ensure that wandering continues
+		return
+	}
 
+	field := CreateDistanceField(world, hunter.TargetPosition, 15)
 	self.MoveTo(field.Next(self.Location, world))
 }

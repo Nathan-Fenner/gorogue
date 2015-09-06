@@ -78,6 +78,10 @@ func castRay(m *Level, from P, offset P) bool {
 	return false
 }
 
+func VisibleBetween(m *Level, from P, to P) bool {
+	return castRay(m, from, to.Sub(from))
+}
+
 func GetVisibility(m *Level, from P) LightGrid {
 	g := LightGrid{
 		from:    from,
