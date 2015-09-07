@@ -275,12 +275,12 @@ func (sidebar *Sidebar) Display() {
 func Play() {
 	rand.Seed(time.Now().Unix())
 
+	world := GenerateCity()
+
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
 	}
-
-	world := CaveLevel()
 
 	termbox.Flush()
 
