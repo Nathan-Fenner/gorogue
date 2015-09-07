@@ -38,7 +38,7 @@ func (hunter *Hunter) Step(world *Level, self *Critter) {
 	}
 	playerSighted := VisibleBetween(world, self.Location, player.Location)
 	playerField := player.Distance(world)
-	if playerSighted && playerField.Distance(self.Location) <= 15 {
+	if playerSighted && playerField.Distance(self.Location) <= 30 {
 		hunter.TargetPosition = player.Location
 	}
 
@@ -48,6 +48,6 @@ func (hunter *Hunter) Step(world *Level, self *Critter) {
 		return
 	}
 
-	field := CreateDistanceField(world, hunter.TargetPosition, 15)
+	field := CreateDistanceField(world, hunter.TargetPosition, 30)
 	self.MoveTo(field.Next(self.Location, world))
 }

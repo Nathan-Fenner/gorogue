@@ -275,7 +275,9 @@ func (sidebar *Sidebar) Display() {
 func Play() {
 	rand.Seed(time.Now().Unix())
 
-	world := GenerateCity()
+	world := GenerateCavern(CavernOptions{
+		ExtraTunnels: true,
+	})
 
 	err := termbox.Init()
 	if err != nil {

@@ -47,7 +47,11 @@ func PlantWater(width, height, density int) map[P]bool {
 	return r
 }
 
-func GenerateCity() *Level {
+type CavernOptions struct {
+	ExtraTunnels bool
+}
+
+func GenerateCavern(options CavernOptions) *Level {
 	level := &Level{
 		Tiles:    map[P]Tile{},
 		Entities: []Entity{},
@@ -136,6 +140,7 @@ func GenerateCity() *Level {
 
 	// Now, we have a bunch of origins.
 	// We'll pathfind between them in order to make the best possible network.
+	pathCost := 1
 	floorCost := 10
 	waterCost := 100
 	wallCost := 5000
@@ -150,7 +155,7 @@ func GenerateCity() *Level {
 	costFunc := func(n P) int {
 		switch {
 		case pathSpace[n]:
-			return 1
+			return pathCost
 		case openSpace[n]:
 			return floorCost
 		case waterSpace[n]:
@@ -160,11 +165,8 @@ func GenerateCity() *Level {
 		}
 	}
 
-	for i := range origins {
-		if i == 0 {
-			continue
-		}
-		path := FindPath(origins[i-1], origins[i], costFunc, true)
+	connectPath := func(i, j int) {
+		path := FindPath(origins[i], origins[j], costFunc, true)
 		for _, p := range path {
 			pathSpace[p] = true
 			if level.Tiles[p].Passable {
@@ -187,6 +189,29 @@ func GenerateCity() *Level {
 					Name:       "passage floor",
 					Foreground: termbox.ColorWhite,
 					Background: termbox.ColorBlack,
+				}
+			}
+		}
+	}
+
+	for i := range origins {
+		if i == 0 {
+			continue
+		}
+		connectPath(i-1, i)
+	}
+
+	if options.ExtraTunnels {
+		// New, wider paths
+		pathCost = wallCost
+		waterCost = wallCost * 300
+		for i := range origins {
+			for j := range origins {
+				if j >= i {
+					break
+				}
+				if rand.Float32() < 0.2 {
+					connectPath(j, i)
 				}
 			}
 		}
