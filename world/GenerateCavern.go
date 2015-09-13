@@ -1,5 +1,6 @@
 package world
 
+import "math"
 import "math/rand"
 import "github.com/nsf/termbox-go"
 
@@ -47,8 +48,21 @@ func PlantWater(width, height, density int) map[P]bool {
 	return r
 }
 
+type ForestOptions struct {
+	Enabled  bool
+	Size     int
+	Sparsity float64
+}
+
+type ChasmOptions struct {
+	Enabled bool
+}
+
 type CavernOptions struct {
-	ExtraTunnels bool
+	ExtraTunnels  bool
+	Watery        bool
+	ForestOptions ForestOptions
+	ChasmOptions  ChasmOptions
 }
 
 func GenerateCavern(options CavernOptions) *Level {
@@ -70,20 +84,82 @@ func GenerateCavern(options CavernOptions) *Level {
 		}
 		wholeSpace[p] = true
 	}
-	waterSpace := PlantWater(70, 70, 25)
-	for p := range waterSpace {
-		if openSpace[p] {
-			continue
+
+	chasmSpace := map[P]bool{}
+
+	// ExtraTunnels conflicts badly with the chasms
+	if options.ChasmOptions.Enabled && !options.ExtraTunnels {
+		// Generate chasms
+		// Pick random points and streak along
+		for i := 0; i < 5; i++ {
+			s := p(rand.Intn(70), rand.Intn(70))
+			dx, dy := rand.Float64()-0.5, rand.Float64()-0.5
+			for dx*dx+dy*dy > 1 {
+				dx, dy = rand.Float64()-0.5, rand.Float64()-0.5
+			}
+			dm := math.Sqrt(dx*dx + dy*dy)
+			dx, dy = dx/dm, dy/dm
+			dtx, dty := rand.Float64()-0.5, rand.Float64()-0.5
+			for dtx*dtx+dty*dty > 1 {
+				dtx, dty = rand.Float64()-0.5, rand.Float64()-0.5
+			}
+			if dx*dtx+dy*dty < 0 {
+				dtx, dty = -dtx, -dty
+			}
+			dtm := math.Sqrt(dtx*dtx + dty*dty)
+			dtx, dty = dtx/dtm, dty/dtm
+			length := rand.Float64()*35 + 15
+			for t := 0.0; t < length; t += 1.0 {
+				mx := dtx*t + (1-t)*dx
+				my := dty*t + (1-t)*dy
+				mm := math.Sqrt(mx*mx + my*my)
+				mx, my = mx/mm, my/mm
+				at := s.Add(p(int(mx*t), int(my*t)))
+				rw := rand.Intn(5) + 2
+				rh := rand.Intn(5) + 2
+				for ix := 0; ix < rw; ix++ {
+					for iy := 0; iy < rh; iy++ {
+						tile := at.Add(p(ix-rw/2, iy-rh/2))
+						chasmSpace[tile] = true
+						level.Tiles[tile] = Tile{
+							Solid:      false,
+							Passable:   false,
+							Symbol:     '.',
+							Name:       "chasm",
+							Foreground: termbox.ColorBlack | termbox.AttrBold,
+							Background: termbox.ColorBlack,
+						}
+						delete(openSpace, tile)
+						wholeSpace[tile] = true
+					}
+				}
+			}
 		}
-		level.Tiles[p] = Tile{
-			Solid:      false,
-			Passable:   false,
-			Symbol:     '≈',
-			Name:       "water",
-			Foreground: termbox.ColorBlue | termbox.AttrBold,
-			Background: termbox.ColorBlack,
+	}
+
+	waterSpace := map[P]bool{}
+
+	if !options.ChasmOptions.Enabled {
+
+		waterAmount := 25
+		if options.Watery {
+			waterAmount = 50
 		}
-		wholeSpace[p] = true
+		waterSpace = PlantWater(70, 70, waterAmount)
+		for p := range waterSpace {
+			if openSpace[p] {
+				continue
+			}
+			level.Tiles[p] = Tile{
+				Solid:      false,
+				Passable:   false,
+				Symbol:     '≈',
+				Name:       "water",
+				Foreground: termbox.ColorBlue | termbox.AttrBold,
+				Background: termbox.ColorBlack,
+			}
+			wholeSpace[p] = true
+		}
 	}
 
 	for at := range wholeSpace {
@@ -144,6 +220,7 @@ func GenerateCavern(options CavernOptions) *Level {
 	floorCost := 10
 	waterCost := 100
 	wallCost := 5000
+	chasmCost := 200
 
 	for i := range origins {
 		j := rand.Intn(len(origins)-i) + i
@@ -156,6 +233,8 @@ func GenerateCavern(options CavernOptions) *Level {
 		switch {
 		case pathSpace[n]:
 			return pathCost
+		case chasmSpace[n]:
+			return chasmCost
 		case openSpace[n]:
 			return floorCost
 		case waterSpace[n]:
@@ -172,7 +251,7 @@ func GenerateCavern(options CavernOptions) *Level {
 			if level.Tiles[p].Passable {
 				continue
 			}
-			if waterSpace[p] {
+			if waterSpace[p] || chasmSpace[p] {
 				level.Tiles[p] = Tile{
 					Solid:      false,
 					Passable:   true,
@@ -205,6 +284,7 @@ func GenerateCavern(options CavernOptions) *Level {
 		// New, wider paths
 		pathCost = wallCost
 		waterCost = wallCost * 300
+		chasmCost = wallCost * 400
 		for i := range origins {
 			for j := range origins {
 				if j >= i {
@@ -230,6 +310,61 @@ func GenerateCavern(options CavernOptions) *Level {
 						Foreground: termbox.ColorWhite,
 						Background: termbox.ColorBlack,
 					}
+				}
+			}
+		}
+	}
+
+	if options.ForestOptions.Enabled {
+		forestSpace := PlantWater(70, 70, 40+options.ForestOptions.Size)
+		forestCells := []P{}
+		for p := range forestSpace {
+			if level.Tiles[p].Name == "cavern floor" || level.Tiles[p].Name == "passage floor" {
+				level.Tiles[p] = Tile{
+					Solid:      false,
+					Passable:   true,
+					Symbol:     chooseRune(",.'`"),
+					Name:       "grassy soil",
+					Foreground: termbox.ColorGreen,
+					Background: termbox.ColorBlack,
+				}
+			}
+			if level.Tiles[p].Name == "cavern wall" {
+				level.Tiles[p] = Tile{
+					Solid:      true,
+					Passable:   false,
+					Symbol:     '░',
+					Name:       "mossy wall",
+					Foreground: termbox.ColorGreen,
+					Background: termbox.ColorBlack,
+				}
+			}
+			forestCells = append(forestCells, p)
+		}
+		for i := range forestCells {
+			j := rand.Intn(len(forestCells)-i) + i
+			forestCells[i], forestCells[j] = forestCells[j], forestCells[i]
+		}
+		for _, at := range forestCells {
+			if level.Tiles[at].Name != "grassy soil" {
+				continue
+			}
+			obstructed := 0
+			for dx := -1; dx <= 1; dx++ {
+				for dy := -1; dy <= 1; dy++ {
+					if !level.Tiles[at.Add(p(dx, dy))].Passable {
+						obstructed++
+					}
+				}
+			}
+			if obstructed <= 1 && rand.Float64() > options.ForestOptions.Sparsity {
+				level.Tiles[at] = Tile{
+					Solid:      true,
+					Passable:   false,
+					Symbol:     chooseRune("♣♠"),
+					Name:       "tree",
+					Foreground: termbox.ColorGreen,
+					Background: termbox.ColorBlack,
 				}
 			}
 		}
@@ -273,7 +408,7 @@ func GenerateCavern(options CavernOptions) *Level {
 				Symbol:     'g',
 				Solid:      false,
 				Passable:   false,
-				Foreground: termbox.ColorGreen,
+				Foreground: termbox.ColorGreen | termbox.AttrBold,
 				Name:       "goblin",
 			},
 			Person:   Third,

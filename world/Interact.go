@@ -276,7 +276,16 @@ func Play() {
 	rand.Seed(time.Now().Unix())
 
 	world := GenerateCavern(CavernOptions{
-		ExtraTunnels: true,
+		ExtraTunnels: rand.Float64() < 0.25,
+		Watery:       rand.Float64() < 0.2,
+		ForestOptions: ForestOptions{
+			Enabled:  rand.Float64() < 0.2,
+			Size:     rand.Intn(60),
+			Sparsity: rand.Float64() * 0.75,
+		},
+		ChasmOptions: ChasmOptions{
+			Enabled: rand.Float64() < 0.15,
+		},
 	})
 
 	err := termbox.Init()
